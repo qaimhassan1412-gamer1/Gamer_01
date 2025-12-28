@@ -1,1 +1,233 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mines Gambling Game</title>
+  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-analytics-compat.js"></script>
+  <style>
+    body { font-family: Arial; background: #111; color: #fff; text-align: center; }
+    input { margin: 5px; padding: 5px; }
+    button { margin: 5px; padding: 5px; cursor: pointer; }
+    .grid { display: grid; grid-template-columns: repeat(5,50px); gap: 5px; justify-content: center; margin: 10px; }
+    .cell { width:50px; height:50px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-weight:bold; font-size:18px; }
+    .bomb { background:red; }
+    .coin { background:gold; color:#000; }
+    .hidden { background:gray; }
+    .user-box { border:1px solid #fff; margin:5px; padding:5px; }
+  </style>
+</head>
+<body>
+
+<h1>Mines Gambling Game</h1>
+
+<div id="authDiv">
+  <h2>Signup</h2>
+  <input type="email" id="signupEmail" placeholder="Email">
+  <input type="password" id="signupPass" placeholder="Password">
+  <button onclick="signup()">Signup</button>
+  <hr>
+  <h2>Login</h2>
+  <input type="email" id="loginEmail" placeholder="Email">
+  <input type="password" id="loginPass" placeholder="Password">
+  <button onclick="login()">Login</button>
+</div>
+
+<div id="gameDiv" style="display:none;">
+  <h2 id="welcomeMsg"></h2>
+  <div id="adminPanel" style="display:none;">
+    <h3>Admin Dashboard</h3>
+    <div id="usersList"></div>
+  </div>
+
+  <div id="minesGame" style="display:none;">
+    <h3>Balance: <span id="balanceDisplay">0</span></h3>
+    <h3>Win: <span id="winDisplay">0</span></h3>
+    <div class="grid" id="grid"></div>
+    <input type="number" id="betInput" placeholder="Bet" value="20">
+    <input type="number" id="mineInput" placeholder="Mines" value="3" min="1" max="10">
+    <br>
+    <button onclick="startRound()">Bet</button>
+    <button onclick="cashout()">Cashout</button>
+  </div>
+  <button onclick="logout()">Logout</button>
+</div>
+
+<script>
+  // ----------------- Firebase Config -----------------
+  const firebaseConfig = {
+    apiKey: "AIzaSyC8rIaJg6ZLErxhUJwPi6I5XRsgoGM_c-E",
+    authDomain: "game1-77632.firebaseapp.com",
+    databaseURL: "https://game1-77632-default-rtdb.firebaseio.com",
+    projectId: "game1-77632",
+    storageBucket: "game1-77632.firebasestorage.app",
+    messagingSenderId: "81413487773",
+    appId: "1:81413487773:web:88605c22d144834ee52874",
+    measurementId: "G-77TF6T8J4B"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.database();
+  const analytics = firebase.analytics();
+
+  let currentUser = null;
+  let isAdmin = false;
+  let bombs = [];
+  let revealed = [];
+  let win = 0;
+
+  // ----------------- Signup -----------------
+  function signup(){
+    const email = document.getElementById('signupEmail').value;
+    const pass = document.getElementById('signupPass').value;
+    auth.createUserWithEmailAndPassword(email, pass)
+      .then(userCredential => {
+        currentUser = userCredential.user;
+        db.ref('users/'+currentUser.uid).set({ balance:2000, rigWin:70, email: email });
+        alert("Signup success");
+        showGame();
+      })
+      .catch(err => alert(err.message));
+  }
+
+  // ----------------- Login -----------------
+  function login(){
+    const email = document.getElementById('loginEmail').value;
+    const pass = document.getElementById('loginPass').value;
+    auth.signInWithEmailAndPassword(email, pass)
+      .then(userCredential => {
+        currentUser = userCredential.user;
+        isAdmin = (email==='admin@gmail.com');
+        showGame();
+      })
+      .catch(err => alert(err.message));
+  }
+
+  // ----------------- Logout -----------------
+  function logout(){
+    auth.signOut();
+    currentUser = null;
+    isAdmin = false;
+    document.getElementById('authDiv').style.display='block';
+    document.getElementById('gameDiv').style.display='none';
+  }
+
+  // ----------------- Show Game / Admin -----------------
+  function showGame(){
+    document.getElementById('authDiv').style.display='none';
+    document.getElementById('gameDiv').style.display='block';
+    document.getElementById('welcomeMsg').innerText = "Welcome "+currentUser.email;
+    if(isAdmin){
+      document.getElementById('adminPanel').style.display='block';
+      document.getElementById('minesGame').style.display='none';
+      loadUsers();
+    } else {
+      document.getElementById('adminPanel').style.display='none';
+      document.getElementById('minesGame').style.display='block';
+      updateBalance();
+      createGrid();
+    }
+  }
+
+  // ----------------- Admin Panel -----------------
+  function loadUsers(){
+    db.ref('users').on('value', snapshot=>{
+      const users = snapshot.val() || {};
+      let html = '';
+      for(let uid in users){
+        html += `<div class="user-box">
+          User: ${uid} | Email: ${users[uid].email} | Balance: ${users[uid].balance || 0}
+          <button onclick="setRigWin('${uid}',70)">Set 70% Win</button>
+          <button onclick="addBalance('${uid}',100)">Add 100</button>
+        </div>`;
+      }
+      document.getElementById('usersList').innerHTML = html;
+    });
+  }
+
+  function setRigWin(uid, percent){
+    db.ref('users/'+uid+'/rigWin').set(percent);
+    alert('Rig win '+percent+'% set for user '+uid);
+  }
+
+  function addBalance(uid, amount){
+    db.ref('users/'+uid).once('value').then(snapshot=>{
+      let bal = snapshot.val().balance || 0;
+      db.ref('users/'+uid+'/balance').set(bal+amount);
+    });
+  }
+
+  // ----------------- Mines Game -----------------
+  const size = 25;
+  function createGrid(){
+    const grid = document.getElementById('grid');
+    grid.innerHTML='';
+    revealed = Array(size).fill(false);
+    for(let i=0;i<size;i++){
+      let div = document.createElement('div');
+      div.className='cell hidden';
+      div.id='cell'+i;
+      div.onclick = ()=>clickCell(i);
+      grid.appendChild(div);
+    }
+  }
+
+  function updateBalance(){
+    db.ref('users/'+currentUser.uid+'/balance').on('value', snap=>{
+      document.getElementById('balanceDisplay').innerText = snap.val() || 0;
+    });
+  }
+
+  function startRound(){
+    const bet = parseFloat(document.getElementById('betInput').value);
+    const mines = parseInt(document.getElementById('mineInput').value);
+    db.ref('users/'+currentUser.uid+'/balance').once('value').then(snap=>{
+      if(snap.val()<bet){ alert("Insufficient balance"); return; }
+      db.ref('users/'+currentUser.uid+'/balance').set(snap.val()-bet);
+      // Generate bombs
+      bombs=[];
+      while(bombs.length<mines){
+        let r = Math.floor(Math.random()*size);
+        if(!bombs.includes(r)) bombs.push(r);
+      }
+      win=0;
+      revealed = Array(size).fill(false);
+      for(let i=0;i<size;i++){
+        document.getElementById('cell'+i).className='cell hidden';
+        document.getElementById('cell'+i).innerText='';
+      }
+    });
+  }
+
+  function clickCell(i){
+    if(revealed[i]) return;
+    revealed[i]=true;
+    const cell = document.getElementById('cell'+i);
+    if(bombs.includes(i)){
+      cell.className='cell bomb';
+      cell.innerText='💣';
+      alert("Boom! You hit a bomb.");
+      win=0;
+    } else {
+      cell.className='cell coin';
+      cell.innerText='🪙';
+      const bet = parseFloat(document.getElementById('betInput').value);
+      win+=bet*0.35;
+    }
+    document.getElementById('winDisplay').innerText=win.toFixed(2);
+  }
+
+  function cashout(){
+    db.ref('users/'+currentUser.uid+'/balance').once('value').then(snap=>{
+      db.ref('users/'+currentUser.uid+'/balance').set(snap.val()+win);
+      win=0;
+      document.getElementById('winDisplay').innerText=win.toFixed(2);
+    });
+  }
+
+</script>
+</body>
+</html>
