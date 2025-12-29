@@ -1,253 +1,286 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Mines Jackpot Pro</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body {
-  margin:0;
-  background:linear-gradient(#041032,#000829);
-  font-family:Arial, sans-serif;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-  color:#fff;
-}
-.container{
-  width:380px;
-  background:#0c2357;
-  border-radius:20px;
-  padding:18px;
-  box-shadow:0 0 30px rgba(0,255,255,.3);
-  text-align:center;
-}
-.title{font-size:34px;font-weight:bold;color:gold;letter-spacing:1px;}
-.jackpot{font-size:26px;color:#41c0ff;margin-bottom:10px;}
-.grid{
-  display:grid;
-  grid-template-columns:repeat(5,1fr);
-  gap:8px;
-  margin:15px 0;
-}
-.cell{
-  height:60px;
-  border-radius:10px;
-  background:#d29b3c;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  font-size:30px;
-  cursor:pointer;
-  transition:0.2s;
-}
-.cell:hover{transform:scale(1.07);filter:brightness(1.15);}
-.cell.revealCoin{background:#ffe184!important;animation:coinPop .25s;}
-.cell.revealBomb{background:#5a006c!important;animation:bombPop .2s;}
-@keyframes coinPop{0%{transform:scale(.6);}100%{transform:scale(1);}}
-@keyframes bombPop{0%{transform:scale(.3);}100%{transform:scale(1);}}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Color Production Game</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
-.controls{
-  display:flex;
-  justify-content:space-between;
-  margin-top:10px;
-}
-.inputBox{
-  background:#001740;
-  border:1px solid #1c4a9e;
-  border-radius:10px;
-  padding:6px;
-  display:flex;
-  align-items:center;
-}
-input{
-  border:none;
-  background:transparent;
-  outline:none;
-  width:60px;
-  font-size:16px;
-  color:#fff;
-}
-select{
-  background:#003170;
-  color:#fff;
-  border-radius:8px;
-  border:none;
-  outline:none;
-  padding:8px;
-  font-size:15px;
-}
-.btn{
-  padding:10px 14px;
-  border:none;
-  border-radius:10px;
-  color:#fff;
-  cursor:pointer;
-  font-weight:bold;
-}
-.btnBet{background:#27cb48;}
-.btnCashout{background:gold;color:#000;}
-.btnAuto{background:#0a6cff;}
-.balance{margin-top:12px;font-size:17px;}
-.multis{display:flex;overflow-x:auto;margin-top:5px;}
-.multi{
-  padding:5px 10px;
-  margin:0 3px;
-  background:#002c66;
-  border-radius:8px;
-  font-size:13px;
-  cursor:pointer;
-}
-.multi.active{background:#0acbff;color:#000;font-weight:bold;}
-</style>
+    <style>
+        :root { --primary: #0093E9; --secondary: #80D0C7; --dark: #1a1a1a; --green: #2ed573; --red: #ff4757; --violet: #a55eea; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f0f3f5; color: #333; }
+        .page { display: none; padding: 20px; padding-bottom: 90px; min-height: 100vh; box-sizing: border-box; }
+        .active { display: block; }
+        
+        /* UI Components */
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .header { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; padding: 30px 20px; text-align: center; border-radius: 0 0 25px 25px; margin: -20px -20px 20px -20px; }
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-main { background: var(--primary); color: white; }
+        
+        /* Game Styles */
+        .timer-box { text-align: center; font-size: 28px; font-weight: 800; color: var(--red); margin: 10px 0; }
+        .color-btns { display: flex; gap: 10px; margin: 20px 0; }
+        .btn-c { flex: 1; color: white; height: 50px; font-size: 16px; box-shadow: 0 4px 0 rgba(0,0,0,0.1); }
+        .g { background: var(--green); } .r { background: var(--red); } .v { background: var(--violet); }
+        .res-circle { display: inline-block; width: 30px; height: 30px; border-radius: 50%; margin: 4px; line-height: 30px; text-align: center; color: white; font-weight: bold; font-size: 12px; }
+
+        /* Footer Menu */
+        .footer { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px 0; box-shadow: 0 -4px 15px rgba(0,0,0,0.05); z-index: 1000; border-top: 1px solid #eee; }
+        .footer-item { text-align: center; font-size: 11px; color: #888; cursor: pointer; flex: 1; }
+        .footer-item.active-nav { color: var(--primary); font-weight: bold; }
+
+        /* Admin Dashboard */
+        .trx-list { max-height: 300px; overflow-y: auto; }
+        .trx-item { border-bottom: 1px solid #eee; padding: 10px 0; font-size: 14px; }
+        .badge { padding: 3px 8px; border-radius: 4px; font-size: 10px; text-transform: uppercase; color: white; }
+        .pending { background: #f1c40f; } .approved { background: #2ecc71; }
+    </style>
 </head>
-
 <body>
-<div class="container">
-  <div class="title">MINES 💥</div>
-  <div class="jackpot" id="jackpot">3,978.46</div>
 
-  <div class="multis" id="multiBox"></div>
-
-  <div class="grid" id="grid"></div>
-
-  <div class="controls">
-    <div class="inputBox">💰
-      <input id="betInput" type="number" value="20">
+<div id="loginPage" class="page active">
+    <div class="header"><h2>Welcome</h2><p>Login to your game account</p></div>
+    <div class="card">
+        <input type="email" id="lEmail" placeholder="Email Address">
+        <input type="password" id="lPass" placeholder="Password">
+        <button class="btn-main" onclick="authAction('login')">LOGIN</button>
+        <p style="text-align:center; color: var(--primary);" onclick="showPage('signupPage')">New here? Create Account</p>
     </div>
-    <select id="mineSelect">
-      <option>1</option><option>2</option><option selected>3</option>
-      <option>4</option><option>5</option><option>6</option>
-      <option>7</option><option>8</option><option>9</option><option>10</option>
-    </select>
-    <button class="btn btnAuto" id="autoBtn">Auto</button>
-    <button class="btn btnBet" id="betBtn">Bet</button>
-  </div>
-
-  <button class="btn btnCashout" id="cashBtn" style="margin-top:10px;display:none;">
-    Cashout
-  </button>
-
-  <div class="balance">
-    Balance: <span id="bal">2000</span> |
-    Win: <span id="win">0</span>
-  </div>
 </div>
 
-<audio id="coinSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_13c1cbbb4a.mp3?filename=coin-win-199517.mp3"></audio>
-<audio id="bombSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_2bd8d20593.mp3?filename=explosion-6081.mp3"></audio>
-<audio id="clickSound" src="https://cdn.pixabay.com/download/audio/2022/03/10/audio_7b0e81918f.mp3?filename=click-button-140881.mp3"></audio>
+<div id="signupPage" class="page">
+    <div class="header"><h2>Register</h2><p>Start your winning journey</p></div>
+    <div class="card">
+        <input type="text" id="rName" placeholder="Full Name">
+        <input type="email" id="rEmail" placeholder="Email Address">
+        <input type="password" id="rPass" placeholder="Password">
+        <button class="btn-main" onclick="authAction('signup')">SIGN UP</button>
+        <p style="text-align:center; color: var(--primary);" onclick="showPage('loginPage')">Already have account? Login</p>
+    </div>
+</div>
+
+<div id="gamePage" class="page">
+    <div class="header">
+        <h3 id="uName">Loading...</h3>
+        <p>Wallet: Rs <span id="uBal">0.00</span></p>
+    </div>
+    <div class="card">
+        <div class="timer-box" id="timer">00:30</div>
+        <p style="text-align:center; font-size: 12px; color: #777;">Period: <span id="periodId">...</span></p>
+        <div class="color-btns">
+            <button class="btn-c g" onclick="bet('Green')">Green</button>
+            <button class="btn-c v" onclick="bet('Violet')">Violet</button>
+            <button class="btn-c r" onclick="bet('Red')">Red</button>
+        </div>
+        <input type="number" id="betAmt" placeholder="Amount (Min 10)">
+    </div>
+    <div class="card">
+        <h4>Recent Records</h4>
+        <div id="history"></div>
+    </div>
+</div>
+
+<div id="depositPage" class="page">
+    <div class="header"><h2>Recharge</h2></div>
+    <div class="card">
+        <p><strong>Admin JazzCash:</strong> 0300-XXXXXXX</p>
+        <p><strong>Admin EasyPaisa:</strong> 0311-XXXXXXX</p>
+        <hr>
+        <select id="dMethod">
+            <option value="JazzCash">JazzCash</option>
+            <option value="EasyPaisa">EasyPaisa</option>
+        </select>
+        <input type="number" id="dAmt" placeholder="Amount Sent">
+        <input type="text" id="dTrx" placeholder="Transaction ID (TID)">
+        <button class="btn-main" onclick="submitDeposit()">Submit Deposit</button>
+    </div>
+</div>
+
+<div id="withdrawPage" class="page">
+    <div class="header"><h2>Withdrawal</h2></div>
+    <div class="card">
+        <input type="number" id="wAmt" placeholder="Amount">
+        <select id="wMethod">
+            <option value="JazzCash">JazzCash</option>
+            <option value="EasyPaisa">EasyPaisa</option>
+        </select>
+        <input type="text" id="wPhone" placeholder="Mobile Number">
+        <button class="btn-main" style="background:#e67e22" onclick="submitWithdraw()">Request Now</button>
+    </div>
+</div>
+
+<div id="adminPage" class="page">
+    <div class="header"><h2>Admin Center</h2></div>
+    <div class="card">
+        <h3>Pending Approvals</h3>
+        <div id="adminTrx" class="trx-list"></div>
+    </div>
+</div>
+
+<div id="menu" class="footer" style="display:none">
+    <div class="footer-item" onclick="showPage('gamePage')">🎮<br>Game</div>
+    <div class="footer-item" onclick="showPage('depositPage')">💰<br>Deposit</div>
+    <div class="footer-item" onclick="showPage('withdrawPage')">🏦<br>Withdraw</div>
+    <div id="admBtn" class="footer-item" style="display:none" onclick="showPage('adminPage')">🛠️<br>Admin</div>
+    <div class="footer-item" onclick="logout()">🚪<br>Logout</div>
+</div>
 
 <script>
-let balance = 2000, win = 0, multiplier = 1.00, bet = 20, mines = 3, revealed = [], bombs = [];
-const size = 25;
-const grid = document.getElementById("grid");
-const balDOM = document.getElementById("bal");
-const winDOM = document.getElementById("win");
-const cashBtn = document.getElementById("cashBtn");
-const betInput = document.getElementById("betInput");
-const mineSelect = document.getElementById("mineSelect");
-
-const multiValues = [1.1,1.26,1.45,1.68,1.96,2.3];
-const multiBox = document.getElementById("multiBox");
-multiValues.forEach(v=>{
-  let m=document.createElement("div");
-  m.className="multi";
-  m.innerText=v+"x";
-  m.onclick=()=>setMulti(v,m);
-  multiBox.appendChild(m);
-});
-function setMulti(v, el){
-  document.querySelectorAll(".multi").forEach(m=>m.classList.remove("active"));
-  el.classList.add("active");
-  multiplier = v;
-}
-
-function startRound(){
-  bombs=[];
-  revealed = Array(size).fill(false);
-  grid.innerHTML="";
-  mines = parseInt(mineSelect.value);
-  bet = parseInt(betInput.value);
-
-  balance -= bet;
-  win = 0;
-  updateUI();
-
-  while(bombs.length < mines){
-    let r=Math.floor(Math.random()*size);
-    if(!bombs.includes(r)) bombs.push(r);
-  }
-
-  for(let i=0;i<size;i++){
-    let cell=document.createElement("div");
-    cell.className="cell";
-    cell.onclick=()=>clickCell(i,cell);
-    grid.appendChild(cell);
-  }
-
-  document.getElementById("clickSound").play();
-  cashBtn.style.display="block";
-}
-
-function clickCell(i,cell){
-  if(revealed[i])return;
-  revealed[i]=true;
-  if(bombs.includes(i)){
-    cell.classList.add("revealBomb");
-    cell.innerHTML="💣";
-    document.getElementById("bombSound").play();
-    win=0;
-    balance-=bet*0.3;
-    updateUI();
-    endRound();
-  }else{
-    cell.classList.add("revealCoin");
-    cell.innerHTML="🪙";
-    document.getElementById("coinSound").play();
-    win += (bet * 0.20) * multiplier;
-    updateUI();
-  }
-}
-
-function cashOut(){
-  balance += win;
-  win=0;
-  updateUI();
-  endRound();
-}
-
-function endRound(){
-  Array.from(grid.children).forEach((c,idx)=>{
-    if(bombs.includes(idx)) {
-      c.classList.add("revealBomb");
-      c.innerHTML="💣";
-    }
-  });
-  cashBtn.style.display="none";
-}
-
-function updateUI(){
-  balDOM.innerText = balance.toFixed(2);
-  winDOM.innerText = win.toFixed(2);
-}
-
-// Auto Mode
-let auto=false, autoInterval;
-document.getElementById("autoBtn").onclick=()=>{
-  auto = !auto;
-  if(auto){
-    autoInterval=setInterval(()=>startRound(),1300);
-    document.getElementById("autoBtn").innerText="Stop";
-  }else{
-    clearInterval(autoInterval);
-    document.getElementById("autoBtn").innerText="Auto";
-  }
+// --- FIREBASE INITIALIZATION ---
+const firebaseConfig = {
+    apiKey: "AIzaSyC8rIaJg6ZLErxhUJwPi6I5XRsgoGM_c-E",
+    authDomain: "game1-77632.firebaseapp.com",
+    databaseURL: "https://game1-77632-default-rtdb.firebaseio.com",
+    projectId: "game1-77632",
+    storageBucket: "game1-77632.firebasestorage.app",
+    messagingSenderId: "81413487773",
+    appId: "1:81413487773:web:88605c22d144834ee52874"
 };
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
 
-document.getElementById("betBtn").onclick=startRound;
-cashBtn.onclick=cashOut;
+let currentU = null;
+let userD = null;
+
+// --- AUTH LOGIC ---
+function authAction(type) {
+    const e = document.getElementById(type=='login'?'lEmail':'rEmail').value;
+    const p = document.getElementById(type=='login'?'lPass':'rPass').value;
+    if(type=='signup') {
+        const n = document.getElementById('rName').value;
+        auth.createUserWithEmailAndPassword(e, p).then(u => {
+            db.ref('users/'+u.user.uid).set({ name: n, email: e, balance: 0, role: 'user' });
+        }).catch(err => alert(err.message));
+    } else {
+        auth.signInWithEmailAndPassword(e, p).catch(err => alert(err.message));
+    }
+}
+
+auth.onAuthStateChanged(user => {
+    if(user) {
+        currentU = user;
+        db.ref('users/'+user.uid).on('value', snap => {
+            userD = snap.val();
+            document.getElementById('uName').innerText = userD.name;
+            document.getElementById('uBal').innerText = userD.balance;
+            document.getElementById('menu').style.display = 'flex';
+            if(userD.email === "admin@gmail.com" || userD.role === 'admin') {
+                document.getElementById('admBtn').style.display = 'block';
+                loadAdmin();
+            }
+            showPage('gamePage');
+            loadHistory();
+        });
+    } else {
+        showPage('loginPage');
+        document.getElementById('menu').style.display = 'none';
+    }
+});
+
+function logout() { auth.signOut(); }
+
+function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+
+// --- GAME ENGINE ---
+let timer = 30;
+setInterval(() => {
+    timer--;
+    if(timer < 0) {
+        timer = 30;
+        if(userD?.role === 'admin') processResult();
+    }
+    document.getElementById('timer').innerText = `00:${timer < 10 ? '0'+timer : timer}`;
+    document.getElementById('periodId').innerText = Date.now().toString().slice(-6);
+}, 1000);
+
+function bet(color) {
+    const amt = parseInt(document.getElementById('betAmt').value);
+    if(!amt || amt < 10 || amt > userD.balance) return alert("Invalid Amount");
+    db.ref('users/'+currentU.uid).update({ balance: userD.balance - amt });
+    db.ref('bets').push({ uid: currentU.uid, color, amt, period: document.getElementById('periodId').innerText });
+    alert("Bet Placed!");
+}
+
+function processResult() {
+    const colors = ['Red', 'Green', 'Violet'];
+    const win = colors[Math.floor(Math.random() * colors.length)];
+    db.ref('results').push({ color: win, time: Date.now() });
+    db.ref('bets').once('value', snap => {
+        snap.forEach(b => {
+            const data = b.val();
+            if(data.color === win) {
+                db.ref('users/'+data.uid+'/balance').transaction(bal => (bal || 0) + (data.amt * 2));
+            }
+        });
+        db.ref('bets').remove();
+    });
+}
+
+function loadHistory() {
+    db.ref('results').limitToLast(12).on('value', snap => {
+        const h = document.getElementById('history');
+        h.innerHTML = "";
+        snap.forEach(r => {
+            const c = r.val().color;
+            h.innerHTML += `<div class="res-circle ${c.toLowerCase()[0]}">${c[0]}</div>`;
+        });
+    });
+}
+
+// --- TRANSACTIONS ---
+function submitDeposit() {
+    const d = { uid: currentU.uid, email: userD.email, amt: document.getElementById('dAmt').value, trx: document.getElementById('dTrx').value, status: 'pending' };
+    db.ref('deposits').push(d);
+    alert("Deposit Submitted!");
+}
+
+function submitWithdraw() {
+    const amt = parseInt(document.getElementById('wAmt').value);
+    if(amt > userD.balance) return alert("Low Balance");
+    db.ref('withdrawals').push({ uid: currentU.uid, email: userD.email, amt, phone: document.getElementById('wPhone').value, status: 'pending' });
+    db.ref('users/'+currentU.uid).update({ balance: userD.balance - amt });
+    alert("Withdrawal Requested!");
+}
+
+// --- ADMIN PANEL ---
+function loadAdmin() {
+    db.ref('deposits').on('value', snap => {
+        const div = document.getElementById('adminTrx');
+        div.innerHTML = "<h4>Pending Deposits</h4>";
+        snap.forEach(c => {
+            const d = c.val();
+            if(d.status === 'pending') {
+                div.innerHTML += `<div class="trx-item">
+                    ${d.email} | Rs ${d.amt} <br> TID: ${d.trx} 
+                    <button onclick="approve('${c.key}','${d.uid}',${d.amt})" style="width:auto; padding:5px 10px; background:green; color:white;">Approve</button>
+                </div>`;
+            }
+        });
+    });
+}
+
+function approve(key, uid, amt) {
+    db.ref('users/'+uid+'/balance').transaction(b => (b || 0) + parseInt(amt));
+    db.ref('deposits/'+key).update({ status: 'approved' });
+}
+
 </script>
+
+<style>
+    /* Quick Helper for Circle Colors */
+    .g { background-color: var(--green) !important; }
+    .r { background-color: var(--red) !important; }
+    .v { background-color: var(--violet) !important; }
+</style>
+
 </body>
 </html>
+
